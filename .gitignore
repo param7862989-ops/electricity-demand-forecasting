@@ -1,0 +1,62 @@
+# =========================
+# Python
+# =========================
+
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Virtual environment
+.venv/
+venv/
+env/
+
+# =========================
+# Jupyter
+# =========================
+
+.ipynb_checkpoints/
+
+# =========================
+# Data
+# =========================
+
+# Raw datasets
+data/raw/*
+
+# Processed datasets
+data/processed/*
+
+# External datasets
+data/external/*
+
+# =========================
+# Trained models
+# =========================
+
+models/*
+*.h5
+*.keras
+*.pb
+
+# =========================
+# Environment / secrets
+# =========================
+
+.env
+.env.*
+
+# =========================
+# IDE
+# =========================
+
+.vscode/
+
+# =========================
+# OS
+# =========================
+
+.DS_Store
+Thumbs.db
+__MACOSX/
