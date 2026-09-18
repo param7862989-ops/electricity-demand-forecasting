@@ -106,32 +106,42 @@ def build_dataset(
         2 * np.pi * (data["month"] - 1) / 12
     )
 
-    for step in range(1, HORIZON + 1):
-        data[f"target_{step}"] = (
-            data["total_demand"].shift(-step)
-        )
-
     train = data.loc[
         data.index <= TRAIN_END
-    ].dropna(
-        subset=FEATURE_COLUMNS + TARGET_COLUMNS
-    )
+    ].copy()
 
     validation = data.loc[
         (data.index > TRAIN_END)
         & (data.index <= VALIDATION_END)
-    ].dropna(
-        subset=FEATURE_COLUMNS + TARGET_COLUMNS
-    )
+    ].copy()
 
     test = data.loc[
         data.index > VALIDATION_END
-    ].dropna(
-        subset=FEATURE_COLUMNS + TARGET_COLUMNS
-    )
+    ].copy()
+
+    def prepare_split(
+        split: pd.DataFrame,
+    ) -> pd.DataFrame:
+        """Create targets without crossing the split boundary."""
+
+        split = split.copy()
+
+        for step in range(1, HORIZON + 1):
+            split[f"target_{step}"] = (
+                split["total_demand"].shift(-step)
+            )
+
+        split = split.dropna(
+            subset=FEATURE_COLUMNS + TARGET_COLUMNS
+        )
+
+        return split
+
+    train = prepare_split(train)
+    validation = prepare_split(validation)
+    test = prepare_split(test)
 
     return train, validation, test
-
 
 def build_dense_model(
     input_size: int,
@@ -300,7 +310,37 @@ def main() -> None:
     data = load_data()
 
     train, validation, test = build_dataset(data)
+    
+    print("\nBoundary-safe dataset shapes:")
+    print(
+        f"Train:      {train.shape}"
+    )
+    print(
+        f"Validation: {validation.shape}"
+    )
+    print(
+        f"Test:       {test.shape}"
+    )
 
+    print("\nUsable target periods:")
+    print(
+        f"Train targets through: "
+        f"{train.index.max()}"
+    )
+    print(
+        f"Validation targets through: "
+        f"{validation.index.max()}"
+    )
+    print(
+        f"Test targets through: "
+        f"{test.index.max()}"
+    )
+
+    print("\nExpected boundary-safe rows:")
+    print("Train:      17,352")
+    print("Validation: 8,736")
+    print("Test:       8,736")    
+    
     X_train = train[FEATURE_COLUMNS]
     y_train = train[TARGET_COLUMNS]
 
