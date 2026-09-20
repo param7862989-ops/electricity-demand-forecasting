@@ -12,16 +12,17 @@ PROCESSED_DATA_PATH = (
     PROJECT_ROOT / "data" / "processed" / "hourly_demand.csv"
 )
 
+REPORTS_DIR = PROJECT_ROOT / "reports"
+MODELS_DIR = PROJECT_ROOT / "models"
+
 TRAIN_END = pd.Timestamp("2012-12-31 23:00:00")
 VALIDATION_END = pd.Timestamp("2013-12-31 23:00:00")
 
 INPUT_WINDOW = 168
 HORIZON = 24
-
 SEED = 42
 
-np.random.seed(SEED)
-tf.random.set_seed(SEED)
+tf.keras.utils.set_random_seed(SEED)
 
 SEQUENCE_FEATURES = [
     "total_demand",
@@ -37,6 +38,7 @@ SEQUENCE_FEATURES = [
 
 def load_data() -> pd.DataFrame:
     """Load processed hourly demand data."""
+
     return pd.read_csv(
         PROCESSED_DATA_PATH,
         parse_dates=["timestamp"],
@@ -168,7 +170,10 @@ def scale_sequence_features(
     test_shape = X_test.shape
 
     X_train_scaled = scaler.fit_transform(
-        X_train.reshape(-1, train_shape[-1])
+        X_train.reshape(
+            -1,
+            train_shape[-1],
+        )
     ).reshape(train_shape)
 
     X_validation_scaled = scaler.transform(
@@ -226,50 +231,9 @@ def scale_targets(
         scaler,
     )
 
-def build_cnn_model() -> tf.keras.Model:
-    """Build the 1D CNN forecasting model."""
 
-    model = tf.keras.Sequential(
-        [
-            tf.keras.layers.Input(
-                shape=(INPUT_WINDOW, len(SEQUENCE_FEATURES))
-            ),
-            tf.keras.layers.Conv1D(
-                filters=64,
-                kernel_size=3,
-                activation="relu",
-            ),
-            tf.keras.layers.MaxPooling1D(
-                pool_size=2
-            ),
-            tf.keras.layers.Conv1D(
-                filters=32,
-                kernel_size=3,
-                activation="relu",
-            ),
-            tf.keras.layers.GlobalAveragePooling1D(),
-            tf.keras.layers.Dense(
-                64,
-                activation="relu",
-            ),
-            tf.keras.layers.Dropout(0.2),
-            tf.keras.layers.Dense(
-                HORIZON
-            ),
-        ]
-    )
-
-    model.compile(
-        optimizer=tf.keras.optimizers.Adam(
-            learning_rate=0.001
-        ),
-        loss="mse",
-        metrics=["mae"],
-    )
-
-    return model
-def build_lstm_model() -> tf.keras.Model:
-    """Build the LSTM forecasting model."""
+def build_gru_model() -> tf.keras.Model:
+    """Build the GRU forecasting model."""
 
     model = tf.keras.Sequential(
         [
@@ -279,7 +243,7 @@ def build_lstm_model() -> tf.keras.Model:
                     len(SEQUENCE_FEATURES),
                 )
             ),
-            tf.keras.layers.LSTM(
+            tf.keras.layers.GRU(
                 64,
                 return_sequences=False,
             ),
@@ -303,46 +267,8 @@ def build_lstm_model() -> tf.keras.Model:
     )
 
     return model
-def evaluate_predictions(
-    model: tf.keras.Model,
-    X_validation: np.ndarray,
-    y_validation: np.ndarray,
-    target_scaler: StandardScaler,
-) -> dict[str, float]:
-    """Evaluate forecasts in original demand units."""
 
-    predictions_scaled = model.predict(
-        X_validation,
-        verbose=0,
-    )
 
-    predictions = target_scaler.inverse_transform(
-        predictions_scaled
-    )
-
-    actual = y_validation
-
-    mae = np.mean(
-        np.abs(actual - predictions)
-    )
-
-    rmse = np.sqrt(
-        np.mean(
-            (actual - predictions) ** 2
-        )
-    )
-
-    mape = np.mean(
-        np.abs(
-            (actual - predictions) / actual
-        )
-    ) * 100
-
-    return {
-        "MAE": float(mae),
-        "RMSE": float(rmse),
-        "MAPE": float(mape),
-    }
 def train_model(
     model: tf.keras.Model,
     X_train: np.ndarray,
@@ -350,12 +276,31 @@ def train_model(
     X_validation: np.ndarray,
     y_validation: np.ndarray,
 ) -> tf.keras.callbacks.History:
-    """Train a sequence forecasting model."""
+    """Train the GRU model with checkpointing and early stopping."""
+
+    MODELS_DIR.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
+    checkpoint_path = (
+        MODELS_DIR / "gru_best.keras"
+    )
+
+    model_checkpoint = tf.keras.callbacks.ModelCheckpoint(
+        filepath=checkpoint_path,
+        monitor="val_loss",
+        save_best_only=True,
+        mode="min",
+        verbose=1,
+    )
 
     early_stopping = tf.keras.callbacks.EarlyStopping(
         monitor="val_loss",
-        patience=10,
+        patience=7,
+        mode="min",
         restore_best_weights=True,
+        verbose=1,
     )
 
     history = model.fit(
@@ -367,19 +312,27 @@ def train_model(
         ),
         epochs=100,
         batch_size=64,
-        callbacks=[early_stopping],
+        callbacks=[
+            model_checkpoint,
+            early_stopping,
+        ],
         verbose=1,
     )
 
     return history
+
 
 def evaluate_predictions(
     model: tf.keras.Model,
     X_validation: np.ndarray,
     y_validation: np.ndarray,
     target_scaler: StandardScaler,
-) -> dict[str, float]:
-    """Evaluate forecasts in original demand units."""
+    validation_origins: pd.DatetimeIndex,
+) -> tuple[
+    dict[str, float],
+    pd.DataFrame,
+]:
+    """Evaluate GRU predictions in original demand units."""
 
     predictions_scaled = model.predict(
         X_validation,
@@ -393,7 +346,9 @@ def evaluate_predictions(
     actual = y_validation
 
     mae = np.mean(
-        np.abs(actual - predictions)
+        np.abs(
+            actual - predictions
+        )
     )
 
     rmse = np.sqrt(
@@ -404,55 +359,207 @@ def evaluate_predictions(
 
     mape = np.mean(
         np.abs(
-            (actual - predictions) / actual
+            (actual - predictions)
+            / np.maximum(
+                np.abs(actual),
+                1e-8,
+            )
         )
     ) * 100
 
-    return {
+    metrics = {
         "MAE": float(mae),
         "RMSE": float(rmse),
         "MAPE": float(mape),
     }
 
+    prediction_data = pd.DataFrame(
+        {
+            "timestamp": validation_origins,
+        }
+    )
+
+    for step in range(HORIZON):
+        prediction_data[
+            f"actual_{step + 1}"
+        ] = actual[:, step]
+
+        prediction_data[
+            f"prediction_{step + 1}"
+        ] = predictions[:, step]
+
+    return metrics, prediction_data
+
+
+def save_training_history(
+    history: tf.keras.callbacks.History,
+) -> None:
+    """Save training history."""
+
+    REPORTS_DIR.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
+    history_data = pd.DataFrame(
+        history.history
+    )
+
+    history_data.index += 1
+    history_data.index.name = "epoch"
+
+    output_path = (
+        REPORTS_DIR
+        / "gru_training_history.csv"
+    )
+
+    history_data.to_csv(
+        output_path
+    )
+
+    print(
+        f"\nTraining history saved to: "
+        f"{output_path}"
+    )
+
+
+def save_metrics(
+    metrics: dict[str, float],
+    epochs_trained: int,
+    best_validation_loss: float,
+) -> None:
+    """Save GRU validation metrics."""
+
+    REPORTS_DIR.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
+    results = pd.DataFrame(
+        [
+            {
+                "model": "GRU",
+                "MAE": metrics["MAE"],
+                "RMSE": metrics["RMSE"],
+                "MAPE": metrics["MAPE"],
+                "epochs_trained": epochs_trained,
+                "best_validation_loss": best_validation_loss,
+            }
+        ]
+    )
+
+    output_path = (
+        REPORTS_DIR
+        / "gru_validation_results.csv"
+    )
+
+    results.to_csv(
+        output_path,
+        index=False,
+    )
+
+    print(
+        f"GRU metrics saved to: "
+        f"{output_path}"
+    )
+
+
+def save_predictions(
+    prediction_data: pd.DataFrame,
+) -> None:
+    """Save GRU validation predictions."""
+
+    REPORTS_DIR.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
+    output_path = (
+        REPORTS_DIR
+        / "gru_validation_predictions.csv"
+    )
+
+    prediction_data.to_csv(
+        output_path,
+        index=False,
+    )
+
+    print(
+        f"Validation predictions saved to: "
+        f"{output_path}"
+    )
+
+
 def main() -> None:
-    print(f"TensorFlow version: {tf.__version__}")
-    print(f"Random seed: {SEED}")
+    print(
+        f"TensorFlow version: "
+        f"{tf.__version__}"
+    )
+
+    print(
+        f"Random seed: {SEED}"
+    )
+
+    print(
+        f"\nInput window: "
+        f"{INPUT_WINDOW} hours"
+    )
+
+    print(
+        f"Forecast horizon: "
+        f"{HORIZON} hours"
+    )
 
     data = add_sequence_features(
         load_data()
     )
 
-    train_X, train_y, train_origins = create_sequences(
-        data,
-        pd.Timestamp("2011-01-01 00:00:00"),
-        TRAIN_END,
+    train_X, train_y, train_origins = (
+        create_sequences(
+            data,
+            pd.Timestamp(
+                "2011-01-01 00:00:00"
+            ),
+            TRAIN_END,
+        )
     )
 
     validation_X, validation_y, validation_origins = (
         create_sequences(
             data,
-            pd.Timestamp("2013-01-01 00:00:00"),
+            pd.Timestamp(
+                "2013-01-01 00:00:00"
+            ),
             VALIDATION_END,
         )
     )
 
-    test_X, test_y, test_origins = create_sequences(
-        data,
-        pd.Timestamp("2014-01-01 00:00:00"),
-        pd.Timestamp("2014-12-31 23:00:00"),
+    test_X, test_y, test_origins = (
+        create_sequences(
+            data,
+            pd.Timestamp(
+                "2014-01-01 00:00:00"
+            ),
+            pd.Timestamp(
+                "2014-12-31 23:00:00"
+            ),
+        )
     )
 
     print("\nSequence dataset shapes:")
     print(
-        f"Train:      X={train_X.shape}, "
+        f"Train:      "
+        f"X={train_X.shape}, "
         f"y={train_y.shape}"
     )
     print(
-        f"Validation: X={validation_X.shape}, "
+        f"Validation: "
+        f"X={validation_X.shape}, "
         f"y={validation_y.shape}"
     )
     print(
-        f"Test:       X={test_X.shape}, "
+        f"Test:       "
+        f"X={test_X.shape}, "
         f"y={test_y.shape}"
     )
 
@@ -480,24 +587,30 @@ def main() -> None:
 
     print("\nScaled sequence shapes:")
     print(
-        f"Train X:      {train_X_scaled.shape}"
+        f"Train X:      "
+        f"{train_X_scaled.shape}"
     )
     print(
-        f"Validation X: {validation_X_scaled.shape}"
+        f"Validation X: "
+        f"{validation_X_scaled.shape}"
     )
     print(
-        f"Test X:       {test_X_scaled.shape}"
+        f"Test X:       "
+        f"{test_X_scaled.shape}"
     )
 
     print("\nScaled target shapes:")
     print(
-        f"Train y:      {train_y_scaled.shape}"
+        f"Train y:      "
+        f"{train_y_scaled.shape}"
     )
     print(
-        f"Validation y: {validation_y_scaled.shape}"
+        f"Validation y: "
+        f"{validation_y_scaled.shape}"
     )
     print(
-        f"Test y:       {test_y_scaled.shape}"
+        f"Test y:       "
+        f"{test_y_scaled.shape}"
     )
 
     print("\nScaling validation:")
@@ -525,47 +638,83 @@ def main() -> None:
         "✓ Test targets transformed "
         "using train scaler."
     )
-    lstm_model = build_lstm_model()
 
-    print("\nLSTM model architecture:")
-    lstm_model.summary()
+    gru_model = build_gru_model()
 
-    print("\nTraining LSTM model...")
+    print("\nGRU model architecture:")
+    gru_model.summary()
+
+    print("\nTraining GRU model...")
 
     history = train_model(
-        lstm_model,
+        gru_model,
         train_X_scaled,
         train_y_scaled,
         validation_X_scaled,
         validation_y_scaled,
     )
-    lstm_metrics = evaluate_predictions(
-        lstm_model,
-        validation_X_scaled,
-        validation_y,
-        target_scaler,
+
+    best_validation_loss = min(
+        history.history["val_loss"]
     )
 
-    print("\nLSTM validation results:")
-    print(
-        f"MAE:  {lstm_metrics['MAE']:,.2f}"
-    )
-    print(
-        f"RMSE: {lstm_metrics['RMSE']:,.2f}"
-    )
-    print(
-        f"MAPE: {lstm_metrics['MAPE']:.2f}%"
+    epochs_trained = len(
+        history.history["loss"]
     )
 
     print("\nTraining complete.")
     print(
         f"Epochs trained: "
-        f"{len(history.history['loss'])}"
+        f"{epochs_trained}"
     )
     print(
         f"Best validation loss: "
-        f"{min(history.history['val_loss']):.6f}"
+        f"{best_validation_loss:.6f}"
     )
+
+    gru_metrics, prediction_data = (
+        evaluate_predictions(
+            gru_model,
+            validation_X_scaled,
+            validation_y,
+            target_scaler,
+            validation_origins,
+        )
+    )
+
+    print("\nGRU validation results:")
+    print(
+        f"MAE:  "
+        f"{gru_metrics['MAE']:,.2f}"
+    )
+    print(
+        f"RMSE: "
+        f"{gru_metrics['RMSE']:,.2f}"
+    )
+    print(
+        f"MAPE: "
+        f"{gru_metrics['MAPE']:.2f}%"
+    )
+
+    save_training_history(
+        history
+    )
+
+    save_metrics(
+        gru_metrics,
+        epochs_trained,
+        best_validation_loss,
+    )
+
+    save_predictions(
+        prediction_data
+    )
+
+    print(
+        f"\nBest GRU model saved to: "
+        f"{MODELS_DIR / 'gru_best.keras'}"
+    )
+
 
 if __name__ == "__main__":
     main()
