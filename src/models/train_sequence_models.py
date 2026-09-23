@@ -1,4 +1,5 @@
 from pathlib import Path
+import argparse
 
 import numpy as np
 import pandas as pd
@@ -18,11 +19,8 @@ MODELS_DIR = PROJECT_ROOT / "models"
 TRAIN_END = pd.Timestamp("2012-12-31 23:00:00")
 VALIDATION_END = pd.Timestamp("2013-12-31 23:00:00")
 
-INPUT_WINDOW = 168
 HORIZON = 24
 SEED = 42
-
-tf.keras.utils.set_random_seed(SEED)
 
 SEQUENCE_FEATURES = [
     "total_demand",
@@ -36,9 +34,20 @@ SEQUENCE_FEATURES = [
 ]
 
 
-def load_data() -> pd.DataFrame:
-    """Load processed hourly demand data."""
+def parse_arguments() -> argparse.Namespace:
+    parser = argparse.ArgumentParser()
 
+    parser.add_argument(
+        "--input-window",
+        type=int,
+        required=True,
+        choices=[24, 168, 336],
+    )
+
+    return parser.parse_args()
+
+
+def load_data() -> pd.DataFrame:
     return pd.read_csv(
         PROCESSED_DATA_PATH,
         parse_dates=["timestamp"],
@@ -49,8 +58,6 @@ def load_data() -> pd.DataFrame:
 def add_sequence_features(
     data: pd.DataFrame,
 ) -> pd.DataFrame:
-    """Add calendar features used by sequence models."""
-
     data = data.copy()
 
     data["hour"] = data.index.hour
@@ -92,8 +99,8 @@ def create_sequences(
     data: pd.DataFrame,
     start_time: pd.Timestamp,
     end_time: pd.Timestamp,
+    input_window: int,
 ) -> tuple[np.ndarray, np.ndarray, pd.DatetimeIndex]:
-    """Create 168-hour input sequences and 24-hour targets."""
 
     features = data[SEQUENCE_FEATURES].to_numpy(
         dtype=np.float32
@@ -110,7 +117,7 @@ def create_sequences(
     origins = []
 
     for end_position in range(
-        INPUT_WINDOW - 1,
+        input_window - 1,
         len(data) - HORIZON,
     ):
         origin = timestamps[end_position]
@@ -130,7 +137,7 @@ def create_sequences(
 
         X.append(
             features[
-                end_position - INPUT_WINDOW + 1 :
+                end_position - input_window + 1 :
                 end_position + 1
             ]
         )
@@ -161,7 +168,6 @@ def scale_sequence_features(
     np.ndarray,
     StandardScaler,
 ]:
-    """Scale sequence features using training data only."""
 
     scaler = StandardScaler()
 
@@ -208,7 +214,6 @@ def scale_targets(
     np.ndarray,
     StandardScaler,
 ]:
-    """Scale targets using training data only."""
 
     scaler = StandardScaler()
 
@@ -232,14 +237,15 @@ def scale_targets(
     )
 
 
-def build_gru_model() -> tf.keras.Model:
-    """Build the GRU forecasting model."""
+def build_gru_model(
+    input_window: int,
+) -> tf.keras.Model:
 
     model = tf.keras.Sequential(
         [
             tf.keras.layers.Input(
                 shape=(
-                    INPUT_WINDOW,
+                    input_window,
                     len(SEQUENCE_FEATURES),
                 )
             ),
@@ -275,16 +281,12 @@ def train_model(
     y_train: np.ndarray,
     X_validation: np.ndarray,
     y_validation: np.ndarray,
+    checkpoint_path: Path,
 ) -> tf.keras.callbacks.History:
-    """Train the GRU model with checkpointing and early stopping."""
 
     MODELS_DIR.mkdir(
         parents=True,
         exist_ok=True,
-    )
-
-    checkpoint_path = (
-        MODELS_DIR / "gru_best.keras"
     )
 
     model_checkpoint = tf.keras.callbacks.ModelCheckpoint(
@@ -332,7 +334,6 @@ def evaluate_predictions(
     dict[str, float],
     pd.DataFrame,
 ]:
-    """Evaluate GRU predictions in original demand units."""
 
     predictions_scaled = model.predict(
         X_validation,
@@ -393,8 +394,8 @@ def evaluate_predictions(
 
 def save_training_history(
     history: tf.keras.callbacks.History,
+    output_path: Path,
 ) -> None:
-    """Save training history."""
 
     REPORTS_DIR.mkdir(
         parents=True,
@@ -407,11 +408,6 @@ def save_training_history(
 
     history_data.index += 1
     history_data.index.name = "epoch"
-
-    output_path = (
-        REPORTS_DIR
-        / "gru_training_history.csv"
-    )
 
     history_data.to_csv(
         output_path
@@ -427,8 +423,9 @@ def save_metrics(
     metrics: dict[str, float],
     epochs_trained: int,
     best_validation_loss: float,
+    input_window: int,
+    output_path: Path,
 ) -> None:
-    """Save GRU validation metrics."""
 
     REPORTS_DIR.mkdir(
         parents=True,
@@ -439,6 +436,7 @@ def save_metrics(
         [
             {
                 "model": "GRU",
+                "input_window": input_window,
                 "MAE": metrics["MAE"],
                 "RMSE": metrics["RMSE"],
                 "MAPE": metrics["MAPE"],
@@ -446,11 +444,6 @@ def save_metrics(
                 "best_validation_loss": best_validation_loss,
             }
         ]
-    )
-
-    output_path = (
-        REPORTS_DIR
-        / "gru_validation_results.csv"
     )
 
     results.to_csv(
@@ -466,17 +459,12 @@ def save_metrics(
 
 def save_predictions(
     prediction_data: pd.DataFrame,
+    output_path: Path,
 ) -> None:
-    """Save GRU validation predictions."""
 
     REPORTS_DIR.mkdir(
         parents=True,
         exist_ok=True,
-    )
-
-    output_path = (
-        REPORTS_DIR
-        / "gru_validation_predictions.csv"
     )
 
     prediction_data.to_csv(
@@ -491,6 +479,12 @@ def save_predictions(
 
 
 def main() -> None:
+
+    args = parse_arguments()
+    input_window = args.input_window
+
+    tf.keras.utils.set_random_seed(SEED)
+
     print(
         f"TensorFlow version: "
         f"{tf.__version__}"
@@ -502,7 +496,7 @@ def main() -> None:
 
     print(
         f"\nInput window: "
-        f"{INPUT_WINDOW} hours"
+        f"{input_window} hours"
     )
 
     print(
@@ -521,6 +515,7 @@ def main() -> None:
                 "2011-01-01 00:00:00"
             ),
             TRAIN_END,
+            input_window,
         )
     )
 
@@ -531,6 +526,7 @@ def main() -> None:
                 "2013-01-01 00:00:00"
             ),
             VALIDATION_END,
+            input_window,
         )
     )
 
@@ -543,20 +539,24 @@ def main() -> None:
             pd.Timestamp(
                 "2014-12-31 23:00:00"
             ),
+            input_window,
         )
     )
 
     print("\nSequence dataset shapes:")
+
     print(
         f"Train:      "
         f"X={train_X.shape}, "
         f"y={train_y.shape}"
     )
+
     print(
         f"Validation: "
         f"X={validation_X.shape}, "
         f"y={validation_y.shape}"
     )
+
     print(
         f"Test:       "
         f"X={test_X.shape}, "
@@ -586,65 +586,84 @@ def main() -> None:
     )
 
     print("\nScaled sequence shapes:")
+
     print(
         f"Train X:      "
         f"{train_X_scaled.shape}"
     )
+
     print(
         f"Validation X: "
         f"{validation_X_scaled.shape}"
     )
+
     print(
         f"Test X:       "
         f"{test_X_scaled.shape}"
     )
 
     print("\nScaled target shapes:")
+
     print(
         f"Train y:      "
         f"{train_y_scaled.shape}"
     )
+
     print(
         f"Validation y: "
         f"{validation_y_scaled.shape}"
     )
+
     print(
         f"Test y:       "
         f"{test_y_scaled.shape}"
     )
 
     print("\nScaling validation:")
+
     print(
-        "✓ Sequence feature scaler fitted "
+        "Sequence feature scaler fitted "
         "using training data only."
     )
+
     print(
-        "✓ Validation sequence features "
+        "Validation sequence features "
         "transformed using train scaler."
     )
+
     print(
-        "✓ Test sequence features "
+        "Test sequence features "
         "transformed using train scaler."
     )
+
     print(
-        "✓ Target scaler fitted using "
+        "Target scaler fitted using "
         "training data only."
     )
+
     print(
-        "✓ Validation targets transformed "
-        "using train scaler."
-    )
-    print(
-        "✓ Test targets transformed "
+        "Validation targets transformed "
         "using train scaler."
     )
 
-    gru_model = build_gru_model()
+    print(
+        "Test targets transformed "
+        "using train scaler."
+    )
+
+    gru_model = build_gru_model(
+        input_window
+    )
 
     print("\nGRU model architecture:")
     gru_model.summary()
 
     print("\nTraining GRU model...")
+
+    checkpoint_path = (
+        MODELS_DIR
+        / f"gru_window{input_window}_best.keras"
+    )
 
     history = train_model(
         gru_model,
@@ -652,6 +671,7 @@ def main() -> None:
         train_y_scaled,
         validation_X_scaled,
         validation_y_scaled,
+        checkpoint_path,
     )
 
     best_validation_loss = min(
@@ -663,10 +683,12 @@ def main() -> None:
     )
 
     print("\nTraining complete.")
+
     print(
         f"Epochs trained: "
         f"{epochs_trained}"
     )
+
     print(
         f"Best validation loss: "
         f"{best_validation_loss:.6f}"
@@ -683,36 +705,46 @@ def main() -> None:
     )
 
     print("\nGRU validation results:")
+
     print(
         f"MAE:  "
         f"{gru_metrics['MAE']:,.2f}"
     )
+
     print(
         f"RMSE: "
         f"{gru_metrics['RMSE']:,.2f}"
     )
+
     print(
         f"MAPE: "
         f"{gru_metrics['MAPE']:.2f}%"
     )
 
     save_training_history(
-        history
+        history,
+        REPORTS_DIR
+        / f"gru_window{input_window}_training_history.csv",
     )
 
     save_metrics(
         gru_metrics,
         epochs_trained,
         best_validation_loss,
+        input_window,
+        REPORTS_DIR
+        / f"gru_window{input_window}_validation_results.csv",
     )
 
     save_predictions(
-        prediction_data
+        prediction_data,
+        REPORTS_DIR
+        / f"gru_window{input_window}_validation_predictions.csv",
     )
 
     print(
         f"\nBest GRU model saved to: "
-        f"{MODELS_DIR / 'gru_best.keras'}"
+        f"{checkpoint_path}"
     )
 
 

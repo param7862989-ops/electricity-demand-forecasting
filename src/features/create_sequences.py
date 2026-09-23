@@ -1,4 +1,5 @@
 from pathlib import Path
+import argparse
 
 import numpy as np
 import pandas as pd
@@ -13,9 +14,7 @@ PROCESSED_DATA_PATH = (
 TRAIN_END = pd.Timestamp("2012-12-31 23:00:00")
 VALIDATION_END = pd.Timestamp("2013-12-31 23:00:00")
 
-INPUT_WINDOW = 168
 HORIZON = 24
-
 
 SEQUENCE_FEATURES = [
     "total_demand",
@@ -30,7 +29,6 @@ SEQUENCE_FEATURES = [
 
 
 def load_data() -> pd.DataFrame:
-    """Load processed hourly demand data."""
     return pd.read_csv(
         PROCESSED_DATA_PATH,
         parse_dates=["timestamp"],
@@ -41,7 +39,6 @@ def load_data() -> pd.DataFrame:
 def add_sequence_features(
     data: pd.DataFrame,
 ) -> pd.DataFrame:
-    """Add features used by sequence models."""
 
     data = data.copy()
 
@@ -84,8 +81,8 @@ def create_sequences(
     data: pd.DataFrame,
     start_time: pd.Timestamp,
     end_time: pd.Timestamp,
+    input_window: int,
 ) -> tuple[np.ndarray, np.ndarray, pd.DatetimeIndex]:
-    """Create 168-hour input sequences and 24-hour targets."""
 
     features = data[SEQUENCE_FEATURES].to_numpy(
         dtype=np.float32
@@ -102,9 +99,10 @@ def create_sequences(
     origins = []
 
     for end_position in range(
-        INPUT_WINDOW - 1,
+        input_window - 1,
         len(data) - HORIZON,
     ):
+
         origin = timestamps[end_position]
 
         if origin < start_time:
@@ -122,7 +120,7 @@ def create_sequences(
 
         X.append(
             features[
-                end_position - INPUT_WINDOW + 1 :
+                end_position - input_window + 1 :
                 end_position + 1
             ]
         )
@@ -143,7 +141,21 @@ def create_sequences(
     )
 
 
-def main() -> None:
+def main():
+
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument(
+        "--input-window",
+        type=int,
+        required=True,
+        choices=[24, 168, 336],
+    )
+
+    args = parser.parse_args()
+
+    input_window = args.input_window
+
     data = add_sequence_features(
         load_data()
     )
@@ -152,6 +164,7 @@ def main() -> None:
         data,
         pd.Timestamp("2011-01-01 00:00:00"),
         TRAIN_END,
+        input_window,
     )
 
     validation_X, validation_y, validation_origins = (
@@ -159,6 +172,7 @@ def main() -> None:
             data,
             pd.Timestamp("2013-01-01 00:00:00"),
             VALIDATION_END,
+            input_window,
         )
     )
 
@@ -166,6 +180,7 @@ def main() -> None:
         data,
         pd.Timestamp("2014-01-01 00:00:00"),
         pd.Timestamp("2014-12-31 23:00:00"),
+        input_window,
     )
 
     print("Sequence dataset shapes:")
@@ -184,7 +199,7 @@ def main() -> None:
 
     print("\nSequence properties:")
     print(
-        f"Input window: {INPUT_WINDOW} hours"
+        f"Input window: {input_window} hours"
     )
     print(
         f"Forecast horizon: {HORIZON} hours"
@@ -197,17 +212,17 @@ def main() -> None:
     print("\nForecast origins:")
     print(
         f"Train:      "
-        f"{train_origins.min()} → "
+        f"{train_origins.min()} -> "
         f"{train_origins.max()}"
     )
     print(
         f"Validation: "
-        f"{validation_origins.min()} → "
+        f"{validation_origins.min()} -> "
         f"{validation_origins.max()}"
     )
     print(
         f"Test:       "
-        f"{test_origins.min()} → "
+        f"{test_origins.min()} -> "
         f"{test_origins.max()}"
     )
 
