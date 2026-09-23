@@ -44,6 +44,27 @@ def parse_arguments() -> argparse.Namespace:
         choices=[24, 168, 336],
     )
 
+    parser.add_argument(
+        "--gru-units",
+        type=int,
+        default=64,
+        choices=[32, 64, 128],
+    )
+
+    parser.add_argument(
+        "--dropout",
+        type=float,
+        default=0.2,
+        choices=[0.0, 0.2, 0.3],
+    )
+
+    parser.add_argument(
+        "--dense-units",
+        type=int,
+        default=64,
+        choices=[32, 64, 128],
+    )
+
     return parser.parse_args()
 
 
@@ -239,6 +260,9 @@ def scale_targets(
 
 def build_gru_model(
     input_window: int,
+    gru_units: int,
+    dropout: float,
+    dense_units: int,
 ) -> tf.keras.Model:
 
     model = tf.keras.Sequential(
@@ -250,12 +274,14 @@ def build_gru_model(
                 )
             ),
             tf.keras.layers.GRU(
-                64,
+                gru_units,
                 return_sequences=False,
             ),
-            tf.keras.layers.Dropout(0.2),
+            tf.keras.layers.Dropout(
+                dropout
+            ),
             tf.keras.layers.Dense(
-                64,
+                dense_units,
                 activation="relu",
             ),
             tf.keras.layers.Dense(
@@ -481,7 +507,11 @@ def save_predictions(
 def main() -> None:
 
     args = parse_arguments()
+
     input_window = args.input_window
+    gru_units = args.gru_units
+    dropout = args.dropout
+    dense_units = args.dense_units
 
     tf.keras.utils.set_random_seed(SEED)
 
@@ -497,6 +527,17 @@ def main() -> None:
     print(
         f"\nInput window: "
         f"{input_window} hours"
+    )
+    print(
+    f"GRU units: {gru_units}"
+    )
+
+    print(
+        f"Dropout: {dropout}"
+    )
+
+    print(
+        f"Dense units: {dense_units}"
     )
 
     print(
@@ -652,7 +693,10 @@ def main() -> None:
     )
 
     gru_model = build_gru_model(
-        input_window
+        input_window,
+        gru_units,
+        dropout,
+        dense_units,
     )
 
     print("\nGRU model architecture:")
@@ -662,7 +706,12 @@ def main() -> None:
 
     checkpoint_path = (
         MODELS_DIR
-        / f"gru_window{input_window}_best.keras"
+        / (
+            f"gru_tune_w{input_window}"
+            f"_g{gru_units}"
+            f"_d{dropout}"
+            f"_dense{dense_units}.keras"
+        )
     )
 
     history = train_model(
@@ -724,7 +773,13 @@ def main() -> None:
     save_training_history(
         history,
         REPORTS_DIR
-        / f"gru_window{input_window}_training_history.csv",
+        / (
+            f"gru_tune_w{input_window}"
+            f"_g{gru_units}"
+            f"_d{dropout}"
+            f"_dense{dense_units}"
+            "_training_history.csv"
+        )
     )
 
     save_metrics(
@@ -733,13 +788,25 @@ def main() -> None:
         best_validation_loss,
         input_window,
         REPORTS_DIR
-        / f"gru_window{input_window}_validation_results.csv",
+        / (
+            f"gru_tune_w{input_window}"
+            f"_g{gru_units}"
+            f"_d{dropout}"
+            f"_dense{dense_units}"
+            "_validation_results.csv"
+        )
     )
 
     save_predictions(
         prediction_data,
         REPORTS_DIR
-        / f"gru_window{input_window}_validation_predictions.csv",
+        / (
+            f"gru_tune_w{input_window}"
+            f"_g{gru_units}"
+            f"_d{dropout}"
+            f"_dense{dense_units}"
+            "_validation_predictions.csv"
+        )
     )
 
     print(
