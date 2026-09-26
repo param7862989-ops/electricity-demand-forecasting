@@ -1,6 +1,6 @@
 
 from datetime import datetime
-
+from functools import lru_cache
 from fastapi import FastAPI
 from pydantic import BaseModel
 from src.inference.predict import (
@@ -25,7 +25,10 @@ app = FastAPI(
     description="API for 24-hour electricity demand forecasting",
     version="1.0.0"
 )
-model, feature_scaler, target_scaler = load_artifacts()
+
+@lru_cache(maxsize=1)
+def get_artifacts():
+    return load_artifacts()
 
 
 @app.get("/health")
@@ -38,7 +41,7 @@ def health_check():
 
 @app.get("/predict", response_model=ForecastResponse)
 def predict():
-
+    model, feature_scaler, target_scaler = get_artifacts()
     df = load_data()
     features = build_features(df)
     model_input = prepare_input(features, feature_scaler)
