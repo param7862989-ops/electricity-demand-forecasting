@@ -4,7 +4,7 @@ An end-to-end machine learning project for forecasting the next 24 hours of aggr
 
 The project covers the complete ML lifecycle:
 
-**Data → EDA → Preprocessing → Feature Engineering → Baselines → Deep Learning → Model Evaluation → Hyperparameter Tuning → Inference → FastAPI → Dashboard → Testing → CI**
+**Data â†’ EDA â†’ Preprocessing â†’ Feature Engineering â†’ Baselines â†’ Deep Learning â†’ Model Evaluation â†’ Hyperparameter Tuning â†’ Inference â†’ FastAPI â†’ Dashboard â†’ Testing â†’ CI**
 
 ---
 
@@ -71,7 +71,7 @@ https://archive.ics.uci.edu/dataset/321/electricityloaddiagrams20112014
 
 - 370 electricity clients
 - 15-minute measurements
-- 2011–2014 time period
+- 2011â€“2014 time period
 - 140,256 observations
 - Aggregate demand created by summing all 370 clients
 - Hourly dataset created from complete 15-minute observations
@@ -88,19 +88,19 @@ The preprocessing pipeline performs the following operations:
 
 ```text
 Raw 15-minute electricity data
-        ↓
+        â†“
 Parse timestamps
-        ↓
+        â†“
 Aggregate all 370 clients
-        ↓
+        â†“
 Correct timestamp alignment
-        ↓
+        â†“
 Convert 15-minute data to hourly demand
-        ↓
+        â†“
 Keep only complete hourly observations
-        ↓
+        â†“
 Validate continuity and data quality
-        ↓
+        â†“
 Save processed hourly dataset
 ```
 
@@ -255,13 +255,13 @@ The general structure is:
 
 ```text
 Past
-│
-├── Training Data
-│
-├── Validation Data
-│
-└── Test Data
-│
+â”‚
+â”œâ”€â”€ Training Data
+â”‚
+â”œâ”€â”€ Validation Data
+â”‚
+â””â”€â”€ Test Data
+â”‚
 Future
 ```
 
@@ -289,7 +289,7 @@ Results:
 
 This provides a basic reference point.
 
-## Seasonal Naive — 24 Hours
+## Seasonal Naive â€” 24 Hours
 
 The forecast uses demand from the same hour of the previous day.
 
@@ -301,7 +301,7 @@ Results:
 
 This proved to be a very strong baseline.
 
-## Seasonal Naive — 168 Hours
+## Seasonal Naive â€” 168 Hours
 
 The forecast uses demand from the same hour of the previous week.
 
@@ -325,13 +325,13 @@ Architecture:
 
 ```text
 Input
- ↓
+ â†“
 Dense(128)
- ↓
+ â†“
 Dropout
- ↓
+ â†“
 Dense(64)
- ↓
+ â†“
 Dense(24)
 ```
 
@@ -349,19 +349,19 @@ Architecture:
 
 ```text
 Input
- ↓
+ â†“
 Conv1D(64)
- ↓
+ â†“
 MaxPooling1D
- ↓
+ â†“
 Conv1D(32)
- ↓
+ â†“
 GlobalAveragePooling1D
- ↓
+ â†“
 Dense(64)
- ↓
+ â†“
 Dropout
- ↓
+ â†“
 Dense(24)
 ```
 
@@ -379,13 +379,13 @@ Architecture:
 
 ```text
 Input
- ↓
+ â†“
 LSTM(64)
- ↓
+ â†“
 Dropout
- ↓
+ â†“
 Dense(64)
- ↓
+ â†“
 Dense(24)
 ```
 
@@ -403,13 +403,13 @@ Architecture:
 
 ```text
 Input
- ↓
+ â†“
 GRU(64)
- ↓
+ â†“
 Dropout
- ↓
+ â†“
 Dense(64)
- ↓
+ â†“
 Dense(24)
 ```
 
@@ -516,16 +516,16 @@ Forecast horizon: 24 hours
 The final TensorFlow model uses the following architecture:
 
 ```text
-Input: 24 × 8
-      ↓
+Input: 24 Ã— 8
+      â†“
 GRU(128)
-      ↓
+      â†“
 Dropout(0.2)
-      ↓
+      â†“
 Dense(64)
-      ↓
+      â†“
 Dense(24)
-      ↓
+      â†“
 Next 24 hourly demand predictions
 ```
 
@@ -578,7 +578,7 @@ Analysis includes:
 - Model comparison
 - Error distribution
 
-One notable pattern was increased forecasting error around the **Christmas period**, particularly around December 23–25, 2013.
+One notable pattern was increased forecasting error around the **Christmas period**, particularly around December 23â€“25, 2013.
 
 This indicates that holiday-specific demand behavior is more difficult for the current feature set and model to capture.
 
@@ -598,23 +598,23 @@ The pipeline performs:
 
 ```text
 Load trained model
-        ↓
+        â†“
 Load feature scaler
-        ↓
+        â†“
 Load target scaler
-        ↓
+        â†“
 Load latest hourly demand
-        ↓
+        â†“
 Build temporal features
-        ↓
+        â†“
 Select previous 24 hours
-        ↓
+        â†“
 Scale features
-        ↓
+        â†“
 Generate 24-hour forecast
-        ↓
+        â†“
 Inverse transform predictions
-        ↓
+        â†“
 Return forecast timestamps + demand
 ```
 
@@ -712,21 +712,21 @@ Architecture:
 
 ```text
 User
- │
- ▼
+ â”‚
+ â–¼
 Streamlit Dashboard
- │
- │ HTTP request
- ▼
+ â”‚
+ â”‚ HTTP request
+ â–¼
 FastAPI Backend
- │
- ▼
+ â”‚
+ â–¼
 Inference Pipeline
- │
- ▼
+ â”‚
+ â–¼
 TensorFlow GRU Model
- │
- ▼
+ â”‚
+ â–¼
 24-Hour Forecast
 ```
 
@@ -796,77 +796,77 @@ This provides automated verification of the project after code changes.
 
 ```text
 electricity-demand-forecasting/
-│
-├── .github/
-│   └── workflows/
-│       └── tests.yml
-│
-├── configs/
-│
-├── dashboard/
-│   └── app.py
-│
-├── data/
-│   ├── raw/
-│   │   └── LD2011_2014.txt
-│   │
-│   └── processed/
-│       └── hourly_demand.csv
-│
-├── models/
-│   ├── final_gru_best.keras
-│   ├── feature_scaler.joblib
-│   └── target_scaler.joblib
-│
-├── notebooks/
-│   └── 01_data_exploration.ipynb
-│
-├── reports/
-│   ├── figures/
-│   ├── baseline_dense_results.csv
-│   ├── gru_training_history.csv
-│   ├── gru_validation_results.csv
-│   ├── gru_validation_predictions.csv
-│   ├── gru_horizon_errors.csv
-│   ├── gru_largest_errors.csv
-│   ├── gru_window_comparison.csv
-│   ├── model_comparison.csv
-│   └── latest_forecast.csv
-│
-├── src/
-│   ├── api/
-│   │   └── main.py
-│   │
-│   ├── data/
-│   │   ├── preprocess.py
-│   │   └── validate_raw.py
-│   │
-│   ├── evaluation/
-│   │   └── baselines.py
-│   │
-│   ├── features/
-│   │   ├── build_features.py
-│   │   ├── create_sequences.py
-│   │   └── create_supervised.py
-│   │
-│   ├── inference/
-│   │   └── predict.py
-│   │
-│   ├── models/
-│   │   ├── train_dense.py
-│   │   ├── train_sequence_models.py
-│   │   └── train_final_model.py
-│   │
-│   └── training/
-│
-├── tests/
-│   ├── test_api.py
-│   └── test_inference.py
-│
-├── .gitignore
-├── pytest.ini
-├── README.md
-└── requirements.txt
+â”‚
+â”œâ”€â”€ .github/
+â”‚   â””â”€â”€ workflows/
+â”‚       â””â”€â”€ tests.yml
+â”‚
+â”œâ”€â”€ configs/
+â”‚
+â”œâ”€â”€ dashboard/
+â”‚   â””â”€â”€ app.py
+â”‚
+â”œâ”€â”€ data/
+â”‚   â”œâ”€â”€ raw/
+â”‚   â”‚   â””â”€â”€ LD2011_2014.txt
+â”‚   â”‚
+â”‚   â””â”€â”€ processed/
+â”‚       â””â”€â”€ hourly_demand.csv
+â”‚
+â”œâ”€â”€ models/
+â”‚   â”œâ”€â”€ final_gru_best.keras
+â”‚   â”œâ”€â”€ feature_scaler.joblib
+â”‚   â””â”€â”€ target_scaler.joblib
+â”‚
+â”œâ”€â”€ notebooks/
+â”‚   â””â”€â”€ 01_data_exploration.ipynb
+â”‚
+â”œâ”€â”€ reports/
+â”‚   â”œâ”€â”€ figures/
+â”‚   â”œâ”€â”€ baseline_dense_results.csv
+â”‚   â”œâ”€â”€ gru_training_history.csv
+â”‚   â”œâ”€â”€ gru_validation_results.csv
+â”‚   â”œâ”€â”€ gru_validation_predictions.csv
+â”‚   â”œâ”€â”€ gru_horizon_errors.csv
+â”‚   â”œâ”€â”€ gru_largest_errors.csv
+â”‚   â”œâ”€â”€ gru_window_comparison.csv
+â”‚   â”œâ”€â”€ model_comparison.csv
+â”‚   â””â”€â”€ latest_forecast.csv
+â”‚
+â”œâ”€â”€ src/
+â”‚   â”œâ”€â”€ api/
+â”‚   â”‚   â””â”€â”€ main.py
+â”‚   â”‚
+â”‚   â”œâ”€â”€ data/
+â”‚   â”‚   â”œâ”€â”€ preprocess.py
+â”‚   â”‚   â””â”€â”€ validate_raw.py
+â”‚   â”‚
+â”‚   â”œâ”€â”€ evaluation/
+â”‚   â”‚   â””â”€â”€ baselines.py
+â”‚   â”‚
+â”‚   â”œâ”€â”€ features/
+â”‚   â”‚   â”œâ”€â”€ build_features.py
+â”‚   â”‚   â”œâ”€â”€ create_sequences.py
+â”‚   â”‚   â””â”€â”€ create_supervised.py
+â”‚   â”‚
+â”‚   â”œâ”€â”€ inference/
+â”‚   â”‚   â””â”€â”€ predict.py
+â”‚   â”‚
+â”‚   â”œâ”€â”€ models/
+â”‚   â”‚   â”œâ”€â”€ train_dense.py
+â”‚   â”‚   â”œâ”€â”€ train_sequence_models.py
+â”‚   â”‚   â””â”€â”€ train_final_model.py
+â”‚   â”‚
+â”‚   â””â”€â”€ training/
+â”‚
+â”œâ”€â”€ tests/
+â”‚   â”œâ”€â”€ test_api.py
+â”‚   â””â”€â”€ test_inference.py
+â”‚
+â”œâ”€â”€ .gitignore
+â”œâ”€â”€ pytest.ini
+â”œâ”€â”€ README.md
+â””â”€â”€ requirements.txt
 ```
 
 ---
