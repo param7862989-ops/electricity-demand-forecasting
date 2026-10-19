@@ -10,8 +10,9 @@ services:
     name: electricity-demand-dashboard
     runtime: docker
     plan: free
-    dockerCommand: sh -c "streamlit run dashboard/app.py --server.port $PORT --server.address 0.0.0.0"
     envVars:
+      - key: APP
+        value: dashboard
       - key: API_URL
         fromService:
           type: web

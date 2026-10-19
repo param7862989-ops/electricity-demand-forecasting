@@ -56,3 +56,13 @@ jobs:
           done
           curl -sf http://localhost:8000/predict | python -c "import json, sys; assert len(json.load(sys.stdin)['forecast']) == 24"
           docker logs api
+
+      - name: Smoke test dashboard mode
+        run: |
+          docker run -d --name dashboard -p 8501:8501 -e APP=dashboard -e PORT=8501 electricity-demand-api
+          for i in $(seq 1 60); do
+            curl -sf http://localhost:8501/_stcore/health && break
+            sleep 2
+          done
+          curl -sf http://localhost:8501/_stcore/health
+          docker logs dashboard

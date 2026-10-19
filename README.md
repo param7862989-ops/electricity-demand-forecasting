@@ -872,6 +872,7 @@ electricity-demand-forecasting/
 ├── pytest.ini
 ├── README.md
 ├── render.yaml
+├── start.sh
 ├── requirements.txt
 └── requirements-dev.txt
 ```
@@ -1004,7 +1005,7 @@ docker run -p 8000:8000 electricity-demand-api
 The same image can serve the dashboard:
 
 ```bash
-docker run -p 8501:8501 electricity-demand-api   streamlit run dashboard/app.py --server.port 8501 --server.address 0.0.0.0
+docker run -p 8501:8501 -e APP=dashboard -e PORT=8501 electricity-demand-api
 ```
 
 ## Render (API + dashboard)

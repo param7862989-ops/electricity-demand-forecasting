@@ -14,12 +14,13 @@ COPY src ./src
 COPY dashboard ./dashboard
 COPY models/final_gru_best.keras models/feature_scaler.joblib models/target_scaler.joblib ./models/
 COPY data/processed/hourly_demand.csv ./data/processed/
+COPY start.sh ./start.sh
 
-RUN useradd --create-home appuser && mkdir -p reports && chown -R appuser /app
+RUN chmod +x start.sh && useradd --create-home appuser && mkdir -p reports && chown -R appuser /app
 USER appuser
 
 EXPOSE 8000
 
 # Serves the API by default. To run the dashboard from the same image instead:
-#   docker run -p 8501:8501 <image> streamlit run dashboard/app.py --server.port 8501 --server.address 0.0.0.0
-CMD ["sh", "-c", "uvicorn src.api.main:app --host 0.0.0.0 --port ${PORT}"]
+#   docker run -p 8501:8501 -e APP=dashboard -e PORT=8501 <image>
+CMD ["./start.sh"]
