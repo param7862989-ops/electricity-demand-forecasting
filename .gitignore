@@ -25,8 +25,9 @@ env/
 # Raw datasets
 data/raw/*
 
-# Processed datasets
+# Processed datasets (the small hourly dataset is kept for deployment)
 data/processed/*
+!data/processed/hourly_demand.csv
 
 # External datasets
 data/external/*
@@ -39,6 +40,11 @@ models/*
 *.h5
 *.keras
 *.pb
+
+# Final deployed model artifacts
+!models/final_gru_best.keras
+!models/feature_scaler.joblib
+!models/target_scaler.joblib
 
 # =========================
 # Environment / secrets

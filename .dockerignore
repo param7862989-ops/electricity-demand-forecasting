@@ -1,0 +1,14 @@
+.git
+.github
+.venv
+.pytest_cache
+**/__pycache__
+notebooks
+reports
+tests
+data/raw
+data/external
+models/*
+!models/final_gru_best.keras
+!models/feature_scaler.joblib
+!models/target_scaler.joblib

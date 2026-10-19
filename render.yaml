@@ -1,0 +1,19 @@
+# Render Blueprint: https://render.com/docs/blueprint-spec
+services:
+  - type: web
+    name: electricity-demand-api
+    runtime: docker
+    plan: free
+    healthCheckPath: /health
+
+  - type: web
+    name: electricity-demand-dashboard
+    runtime: docker
+    plan: free
+    dockerCommand: sh -c "streamlit run dashboard/app.py --server.port $PORT --server.address 0.0.0.0"
+    envVars:
+      - key: API_URL
+        fromService:
+          type: web
+          name: electricity-demand-api
+          envVarKey: RENDER_EXTERNAL_URL

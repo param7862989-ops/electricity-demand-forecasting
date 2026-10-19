@@ -4,7 +4,7 @@ An end-to-end machine learning project for forecasting the next 24 hours of aggr
 
 The project covers the complete ML lifecycle:
 
-**Data â†’ EDA â†’ Preprocessing â†’ Feature Engineering â†’ Baselines â†’ Deep Learning â†’ Model Evaluation â†’ Hyperparameter Tuning â†’ Inference â†’ FastAPI â†’ Dashboard â†’ Testing â†’ CI**
+**Data → EDA → Preprocessing → Feature Engineering → Baselines → Deep Learning → Model Evaluation → Hyperparameter Tuning → Inference → FastAPI → Dashboard → Testing → CI**
 
 ---
 
@@ -71,7 +71,7 @@ https://archive.ics.uci.edu/dataset/321/electricityloaddiagrams20112014
 
 - 370 electricity clients
 - 15-minute measurements
-- 2011â€“2014 time period
+- 2011–2014 time period
 - 140,256 observations
 - Aggregate demand created by summing all 370 clients
 - Hourly dataset created from complete 15-minute observations
@@ -88,19 +88,19 @@ The preprocessing pipeline performs the following operations:
 
 ```text
 Raw 15-minute electricity data
-        â†“
+        ↓
 Parse timestamps
-        â†“
+        ↓
 Aggregate all 370 clients
-        â†“
+        ↓
 Correct timestamp alignment
-        â†“
+        ↓
 Convert 15-minute data to hourly demand
-        â†“
+        ↓
 Keep only complete hourly observations
-        â†“
+        ↓
 Validate continuity and data quality
-        â†“
+        ↓
 Save processed hourly dataset
 ```
 
@@ -255,13 +255,13 @@ The general structure is:
 
 ```text
 Past
-â”‚
-â”œâ”€â”€ Training Data
-â”‚
-â”œâ”€â”€ Validation Data
-â”‚
-â””â”€â”€ Test Data
-â”‚
+│
+├── Training Data
+│
+├── Validation Data
+│
+└── Test Data
+│
 Future
 ```
 
@@ -289,7 +289,7 @@ Results:
 
 This provides a basic reference point.
 
-## Seasonal Naive â€” 24 Hours
+## Seasonal Naive — 24 Hours
 
 The forecast uses demand from the same hour of the previous day.
 
@@ -301,7 +301,7 @@ Results:
 
 This proved to be a very strong baseline.
 
-## Seasonal Naive â€” 168 Hours
+## Seasonal Naive — 168 Hours
 
 The forecast uses demand from the same hour of the previous week.
 
@@ -325,13 +325,13 @@ Architecture:
 
 ```text
 Input
- â†“
+ ↓
 Dense(128)
- â†“
+ ↓
 Dropout
- â†“
+ ↓
 Dense(64)
- â†“
+ ↓
 Dense(24)
 ```
 
@@ -349,19 +349,19 @@ Architecture:
 
 ```text
 Input
- â†“
+ ↓
 Conv1D(64)
- â†“
+ ↓
 MaxPooling1D
- â†“
+ ↓
 Conv1D(32)
- â†“
+ ↓
 GlobalAveragePooling1D
- â†“
+ ↓
 Dense(64)
- â†“
+ ↓
 Dropout
- â†“
+ ↓
 Dense(24)
 ```
 
@@ -379,13 +379,13 @@ Architecture:
 
 ```text
 Input
- â†“
+ ↓
 LSTM(64)
- â†“
+ ↓
 Dropout
- â†“
+ ↓
 Dense(64)
- â†“
+ ↓
 Dense(24)
 ```
 
@@ -403,13 +403,13 @@ Architecture:
 
 ```text
 Input
- â†“
+ ↓
 GRU(64)
- â†“
+ ↓
 Dropout
- â†“
+ ↓
 Dense(64)
- â†“
+ ↓
 Dense(24)
 ```
 
@@ -516,16 +516,16 @@ Forecast horizon: 24 hours
 The final TensorFlow model uses the following architecture:
 
 ```text
-Input: 24 Ã— 8
-      â†“
+Input: 24 × 8
+      ↓
 GRU(128)
-      â†“
+      ↓
 Dropout(0.2)
-      â†“
+      ↓
 Dense(64)
-      â†“
+      ↓
 Dense(24)
-      â†“
+      ↓
 Next 24 hourly demand predictions
 ```
 
@@ -578,7 +578,7 @@ Analysis includes:
 - Model comparison
 - Error distribution
 
-One notable pattern was increased forecasting error around the **Christmas period**, particularly around December 23â€“25, 2013.
+One notable pattern was increased forecasting error around the **Christmas period**, particularly around December 23–25, 2013.
 
 This indicates that holiday-specific demand behavior is more difficult for the current feature set and model to capture.
 
@@ -598,23 +598,23 @@ The pipeline performs:
 
 ```text
 Load trained model
-        â†“
+        ↓
 Load feature scaler
-        â†“
+        ↓
 Load target scaler
-        â†“
+        ↓
 Load latest hourly demand
-        â†“
+        ↓
 Build temporal features
-        â†“
+        ↓
 Select previous 24 hours
-        â†“
+        ↓
 Scale features
-        â†“
+        ↓
 Generate 24-hour forecast
-        â†“
+        ↓
 Inverse transform predictions
-        â†“
+        ↓
 Return forecast timestamps + demand
 ```
 
@@ -638,21 +638,28 @@ src/api/main.py
 
 ## Available Endpoints
 
-### Health Check
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/health` | Liveness check |
+| `GET` | `/model-info` | Model name, input window and forecast horizon |
+| `GET` | `/predict` | Forecast the 24 hours after the end of the bundled dataset |
+| `POST` | `/predict` | Forecast the 24 hours after a caller-supplied demand history |
+| `GET` | `/history?hours=168` | Most recent observed hourly demand from the bundled dataset |
 
-```text
-GET /health
+### Forecast from your own data
+
+`POST /predict` accepts any hourly aggregate demand history. At least 24 points are required, and the last 24 must be consecutive hours:
+
+```json
+{
+  "history": [
+    {"timestamp": "2014-12-31T00:00:00", "total_demand": 120345.6},
+    {"timestamp": "2014-12-31T01:00:00", "total_demand": 115870.2}
+  ]
+}
 ```
 
-Used to verify that the API is running.
-
-### Forecast
-
-```text
-GET /predict
-```
-
-Returns the next 24 hours of predicted electricity demand.
+Invalid input (too few points, gaps, duplicates or negative demand) returns `422` with a descriptive message. If the model artifacts are missing the API returns `503` instead of crashing.
 
 Example response structure:
 
@@ -670,17 +677,7 @@ Example response structure:
 }
 ```
 
-The API also provides interactive documentation through:
-
-```text
-/docs
-```
-
-and:
-
-```text
-/redoc
-```
+The API also provides interactive documentation through `/docs` and `/redoc`. The root URL `/` redirects to `/docs`.
 
 Model artifacts are loaded lazily and cached so that the model does not need to be loaded from disk for every request.
 
@@ -688,7 +685,7 @@ Model artifacts are loaded lazily and cached so that the model does not need to 
 
 # Forecasting Dashboard
 
-A Streamlit dashboard was created to provide a simple user interface for the forecasting system.
+A Streamlit dashboard provides a simple user interface for the forecasting system.
 
 Location:
 
@@ -698,35 +695,38 @@ dashboard/app.py
 
 The dashboard provides:
 
-- Forecast generation
-- Peak demand
-- Minimum demand
-- Average demand
-- Forecast line chart
-- Forecast detail table
-- API error handling
+- Forecast generation from the bundled dataset or an uploaded CSV (`timestamp`, `total_demand`)
+- Peak, minimum and average forecast demand
+- Chart of the last 7 days of observed demand followed by the forecast
+- Forecast detail table and CSV download
+- Error handling for invalid data and API failures
 
-The dashboard communicates with the FastAPI backend.
+The dashboard runs in one of two modes:
 
-Architecture:
+| Mode | When | Behaviour |
+|---|---|---|
+| Standalone | `API_URL` is not set | Loads the model in-process. Used for single-service deployment such as Streamlit Community Cloud |
+| API client | `API_URL` is set, e.g. `http://127.0.0.1:8000` | Sends requests to the FastAPI backend |
+
+Architecture in API client mode:
 
 ```text
 User
- â”‚
- â–¼
+ │
+ ▼
 Streamlit Dashboard
- â”‚
- â”‚ HTTP request
- â–¼
+ │
+ │ HTTP request (POST /predict)
+ ▼
 FastAPI Backend
- â”‚
- â–¼
+ │
+ ▼
 Inference Pipeline
- â”‚
- â–¼
+ │
+ ▼
 TensorFlow GRU Model
- â”‚
- â–¼
+ │
+ ▼
 24-Hour Forecast
 ```
 
@@ -743,12 +743,16 @@ The project currently contains tests for:
 - Feature column generation
 - Expected row count
 - Missing-value validation
+- End-to-end forecasting with a stub model
+- Input-history validation (length, gaps, negative demand)
 
 ### API
 
-- Health endpoint
-- Prediction endpoint
-- Prediction response structure
+- Health and model-info endpoints
+- `GET /predict` response structure
+- `POST /predict` with custom history, plus rejection of short or non-consecutive input
+- `503` response when model artifacts are missing
+- History endpoint
 
 Run the complete test suite with:
 
@@ -759,10 +763,10 @@ pytest -v
 Current local test result:
 
 ```text
-6 passed
+16 passed
 ```
 
-The API tests mock the inference artifacts where appropriate so that the tests do not depend on ignored local model binaries being present in the CI environment.
+The unit tests mock the model so they run quickly without loading TensorFlow. CI additionally runs the real model end to end.
 
 ---
 
@@ -779,16 +783,16 @@ Workflow:
 The workflow:
 
 1. Checks out the repository
-2. Sets up Python 3.13
-3. Installs dependencies
+2. Sets up Python 3.13 with pip caching
+3. Installs `requirements-dev.txt`
 4. Runs pytest
+5. Runs the real inference pipeline against the committed model
+6. Builds the Docker image and smoke-tests `/health` and `/predict` inside the container
 
 The workflow runs on:
 
 - Pushes to `main`
 - Pull requests targeting `main`
-
-This provides automated verification of the project after code changes.
 
 ---
 
@@ -796,77 +800,80 @@ This provides automated verification of the project after code changes.
 
 ```text
 electricity-demand-forecasting/
-â”‚
-â”œâ”€â”€ .github/
-â”‚   â””â”€â”€ workflows/
-â”‚       â””â”€â”€ tests.yml
-â”‚
-â”œâ”€â”€ configs/
-â”‚
-â”œâ”€â”€ dashboard/
-â”‚   â””â”€â”€ app.py
-â”‚
-â”œâ”€â”€ data/
-â”‚   â”œâ”€â”€ raw/
-â”‚   â”‚   â””â”€â”€ LD2011_2014.txt
-â”‚   â”‚
-â”‚   â””â”€â”€ processed/
-â”‚       â””â”€â”€ hourly_demand.csv
-â”‚
-â”œâ”€â”€ models/
-â”‚   â”œâ”€â”€ final_gru_best.keras
-â”‚   â”œâ”€â”€ feature_scaler.joblib
-â”‚   â””â”€â”€ target_scaler.joblib
-â”‚
-â”œâ”€â”€ notebooks/
-â”‚   â””â”€â”€ 01_data_exploration.ipynb
-â”‚
-â”œâ”€â”€ reports/
-â”‚   â”œâ”€â”€ figures/
-â”‚   â”œâ”€â”€ baseline_dense_results.csv
-â”‚   â”œâ”€â”€ gru_training_history.csv
-â”‚   â”œâ”€â”€ gru_validation_results.csv
-â”‚   â”œâ”€â”€ gru_validation_predictions.csv
-â”‚   â”œâ”€â”€ gru_horizon_errors.csv
-â”‚   â”œâ”€â”€ gru_largest_errors.csv
-â”‚   â”œâ”€â”€ gru_window_comparison.csv
-â”‚   â”œâ”€â”€ model_comparison.csv
-â”‚   â””â”€â”€ latest_forecast.csv
-â”‚
-â”œâ”€â”€ src/
-â”‚   â”œâ”€â”€ api/
-â”‚   â”‚   â””â”€â”€ main.py
-â”‚   â”‚
-â”‚   â”œâ”€â”€ data/
-â”‚   â”‚   â”œâ”€â”€ preprocess.py
-â”‚   â”‚   â””â”€â”€ validate_raw.py
-â”‚   â”‚
-â”‚   â”œâ”€â”€ evaluation/
-â”‚   â”‚   â””â”€â”€ baselines.py
-â”‚   â”‚
-â”‚   â”œâ”€â”€ features/
-â”‚   â”‚   â”œâ”€â”€ build_features.py
-â”‚   â”‚   â”œâ”€â”€ create_sequences.py
-â”‚   â”‚   â””â”€â”€ create_supervised.py
-â”‚   â”‚
-â”‚   â”œâ”€â”€ inference/
-â”‚   â”‚   â””â”€â”€ predict.py
-â”‚   â”‚
-â”‚   â”œâ”€â”€ models/
-â”‚   â”‚   â”œâ”€â”€ train_dense.py
-â”‚   â”‚   â”œâ”€â”€ train_sequence_models.py
-â”‚   â”‚   â””â”€â”€ train_final_model.py
-â”‚   â”‚
-â”‚   â””â”€â”€ training/
-â”‚
-â”œâ”€â”€ tests/
-â”‚   â”œâ”€â”€ test_api.py
-â”‚   â””â”€â”€ test_inference.py
-â”‚
-â”œâ”€â”€ .gitignore
-â”œâ”€â”€ pytest.ini
-â”œâ”€â”€ README.md
-â””â”€â”€ requirements.txt
+│
+├── .github/
+│   └── workflows/
+│       └── tests.yml
+│
+├── configs/
+│
+├── dashboard/
+│   └── app.py
+│
+├── data/
+│   ├── raw/
+│   │   └── LD2011_2014.txt
+│   │
+│   └── processed/
+│       └── hourly_demand.csv
+│
+├── models/
+│   ├── final_gru_best.keras
+│   ├── feature_scaler.joblib
+│   └── target_scaler.joblib
+│
+├── notebooks/
+│   └── 01_data_exploration.ipynb
+│
+├── reports/
+│   ├── figures/
+│   ├── baseline_dense_results.csv
+│   ├── gru_training_history.csv
+│   ├── gru_validation_results.csv
+│   ├── gru_validation_predictions.csv
+│   ├── gru_horizon_errors.csv
+│   ├── gru_largest_errors.csv
+│   ├── gru_window_comparison.csv
+│   ├── model_comparison.csv
+│   └── latest_forecast.csv
+│
+├── src/
+│   ├── api/
+│   │   └── main.py
+│   │
+│   ├── data/
+│   │   ├── preprocess.py
+│   │   └── validate_raw.py
+│   │
+│   ├── evaluation/
+│   │   └── baselines.py
+│   │
+│   ├── features/
+│   │   ├── build_features.py
+│   │   ├── create_sequences.py
+│   │   └── create_supervised.py
+│   │
+│   ├── inference/
+│   │   └── predict.py
+│   │
+│   ├── models/
+│   │   ├── train_dense.py
+│   │   ├── train_sequence_models.py
+│   │   └── train_final_model.py
+│   │
+│
+├── tests/
+│   ├── test_api.py
+│   └── test_inference.py
+│
+├── .dockerignore
+├── .gitignore
+├── Dockerfile
+├── pytest.ini
+├── README.md
+├── render.yaml
+├── requirements.txt
+└── requirements-dev.txt
 ```
 
 ---
@@ -894,9 +901,19 @@ python -m venv .venv
 
 ## 4. Install dependencies
 
+For running the API and dashboard only:
+
 ```powershell
 pip install -r requirements.txt
 ```
+
+For development (tests, training scripts, notebooks):
+
+```powershell
+pip install -r requirements-dev.txt
+```
+
+The trained model (`models/final_gru_best.keras`), its scalers and the processed hourly dataset are committed to the repository, so the API and dashboard work immediately after cloning. The raw dataset is only needed to retrain.
 
 ---
 
@@ -962,13 +979,52 @@ Activate the virtual environment:
 .venv\Scripts\Activate.ps1
 ```
 
-Then run:
+Then point the dashboard at the API and run it:
 
 ```powershell
+$env:API_URL = "http://127.0.0.1:8000"
 streamlit run dashboard/app.py
 ```
 
-The Streamlit dashboard will open in the browser.
+Without `API_URL` the dashboard runs the model itself, so the FastAPI server is not needed.
+
+---
+
+# Deployment
+
+The project ships three deployment options.
+
+## Docker
+
+```bash
+docker build -t electricity-demand-api .
+docker run -p 8000:8000 electricity-demand-api
+```
+
+The same image can serve the dashboard:
+
+```bash
+docker run -p 8501:8501 electricity-demand-api   streamlit run dashboard/app.py --server.port 8501 --server.address 0.0.0.0
+```
+
+## Render (API + dashboard)
+
+`render.yaml` is a Render Blueprint that deploys the API and the dashboard as two free web services, with the dashboard's `API_URL` wired to the API automatically.
+
+1. Sign in at https://render.com with GitHub
+2. **New → Blueprint**, then select this repository
+3. Click **Apply**
+
+On the free plan, services sleep when idle, so the first request after a pause takes about a minute.
+
+## Streamlit Community Cloud (dashboard only)
+
+1. Sign in at https://share.streamlit.io with GitHub
+2. **Create app**, then select this repository, branch `main`, and main file `dashboard/app.py`
+3. Under **Advanced settings**, choose Python 3.13
+4. Deploy
+
+The dashboard runs in standalone mode, so no separate API is needed.
 
 ---
 
@@ -1123,8 +1179,6 @@ Potential future extensions include:
 - Model monitoring
 - Data drift detection
 - Forecast drift monitoring
-- Cloud deployment
-- Containerization using Docker
 - Database-backed prediction history
 - Authentication and authorization
 - Production monitoring and logging
@@ -1159,6 +1213,8 @@ The project currently includes:
 - [x] Streamlit dashboard
 - [x] Automated testing
 - [x] GitHub Actions CI
+- [x] Docker image and cloud deployment configuration
+- [x] Custom-history forecasting endpoint
 - [x] Project documentation
 
 ---
