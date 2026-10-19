@@ -6,6 +6,17 @@ The project covers the complete ML lifecycle:
 
 **Data → EDA → Preprocessing → Feature Engineering → Baselines → Deep Learning → Model Evaluation → Hyperparameter Tuning → Inference → FastAPI → Dashboard → Testing → CI**
 
+
+## Live Demo
+
+| | Link |
+|---|---|
+| Dashboard (Streamlit Cloud) | https://electricity-demand-forecastingg.streamlit.app/ |
+| Dashboard (Render, via the API) | https://electricity-demand-dashboard.onrender.com/ |
+| REST API docs (Render) | https://electricity-demand-api-psod.onrender.com/docs |
+
+Hosted on free tiers, so the first request after a period of inactivity can take about a minute while the service wakes up.
+
 ---
 
 ## Project Overview
